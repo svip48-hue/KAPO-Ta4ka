@@ -32,14 +32,14 @@ const char* WIFI_PASS = "12345678";
 const char* MAIN_URL  = "http://192.168.4.1/sensor";  // XIAO
 
 // ── PORT A пины (I2C для VL53L0X) ─────────────────────────
-#define PORT_A_SDA  1   // G1
-#define PORT_A_SCL  2   // G2
+//#define PORT_A_SDA  1   // G1
+//#define PORT_A_SCL  2   // G2
 
 // ── VL53L0X ───────────────────────────────────────────────
-Adafruit_VL53L0X vl53;
-bool vl53_ok = false;
-unsigned long lastSendMs = 0;
-#define SEND_INTERVAL_MS 350
+//Adafruit_VL53L0X vl53;
+//bool vl53_ok = false;
+//unsigned long lastSendMs = 0;
+//#define SEND_INTERVAL_MS 350
 
 // ── Пины камеры AtomS3R M12 (OV3660, 3MP) ─────────────────
 // GPIO18 LOW = включить питание камеры (обязательно до init!)
@@ -67,38 +67,38 @@ unsigned long lastSendMs = 0;
 WebServer server(80);
 
 // ── VL53L0X task — jookseb core 0-l, sõltumatu strimist ──
-void sensorTask(void* pvParameters) {
-  while (true) {
-    if (vl53_ok && WiFi.status() == WL_CONNECTED) {
-      unsigned long now = millis();
-      if (now - lastSendMs >= SEND_INTERVAL_MS) {
-        lastSendMs = now;
+// void sensorTask(void* pvParameters) {
+//   while (true) {
+//     if (vl53_ok && WiFi.status() == WL_CONNECTED) {
+//       unsigned long now = millis();
+//       if (now - lastSendMs >= SEND_INTERVAL_MS) {
+//         lastSendMs = now;
 
-        VL53L0X_RangingMeasurementData_t m;
-        vl53.rangingTest(&m, false);
+//         VL53L0X_RangingMeasurementData_t m;
+//         vl53.rangingTest(&m, false);
 
-        if (m.RangeStatus != 4) {
-          float dist = m.RangeMilliMeter / 10.0;
+//         if (m.RangeStatus != 4) {
+//           float dist = m.RangeMilliMeter / 10.0;
 
-          StaticJsonDocument<64> doc;
-          doc["dist"] = dist;
-          String body;
-          serializeJson(doc, body);
+//           StaticJsonDocument<64> doc;
+//           doc["dist"] = dist;
+//           String body;
+//           serializeJson(doc, body);
 
-          HTTPClient http;
-          http.begin(MAIN_URL);
-          http.addHeader("Content-Type", "application/json");
-          http.setTimeout(150);
-          http.POST(body);
-          http.end();
+//           HTTPClient http;
+//           http.begin(MAIN_URL);
+//           http.addHeader("Content-Type", "application/json");
+//           http.setTimeout(150);
+//           http.POST(body);
+//           http.end();
 
-          Serial.printf("Dist: %.1f cm\n", dist);
-        }
-      }
-    }
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-  }
-}
+//           Serial.printf("Dist: %.1f cm\n", dist);
+//         }
+//       }
+//     }
+//     vTaskDelay(50 / portTICK_PERIOD_MS);
+//   }
+// }
 
 // ── MJPEG стрим ───────────────────────────────────────────
 void handleStream() {
@@ -148,7 +148,9 @@ void handleStatus() {
 void setup() {
   Serial.begin(115200);
   Serial.println("AtomS3R Camera starting...");
-
+  Serial.printf("PSRAM: %s, size: %d bytes\n", 
+  psramFound() ? "found" : "NOT FOUND",
+  ESP.getPsramSize());
   // ── Питание камеры OV3660 ──────────────────────────────
   // GPIO18 LOW — включить питание I2C и камеры (M12 специфика)
   // Без этого камера не инициализируется и I2C не работает
@@ -189,12 +191,12 @@ void setup() {
 
   // OV3660: 3MP, 8MB PSRAM на борту
   if (psramFound()) {
-    config.frame_size   = FRAMESIZE_HD;    // 1280x720 — хороший баланс скорости и качества
-    config.jpeg_quality = 10;
-    config.fb_count     = 2;
+    config.frame_size   = FRAMESIZE_VGA;   // 640x480 — быстро и чётко на телефоне
+    config.jpeg_quality = 9;               // 0-63, меньше = лучше качество
+    config.fb_count     = 1;
   } else {
-    config.frame_size   = FRAMESIZE_VGA;
-    config.jpeg_quality = 15;
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.jpeg_quality = 12;
     config.fb_count     = 1;
   }
 
@@ -209,21 +211,17 @@ void setup() {
   // Дополнительные настройки сенсора
   sensor_t* s = esp_camera_sensor_get();
   if (s) {
-    s->set_brightness(s, 0);
-    s->set_contrast(s, 0);
-    s->set_saturation(s, 0);
-    s->set_hmirror(s, 0);   // зеркало по горизонтали: 1 = да
-    s->set_vflip(s, 0);     // перевернуть: 1 = да
+    s->set_brightness(s, 1);    // немного светлее (0 стандарт, 1-2 светлее)
+    s->set_contrast(s, 1);      // чуть больше контраст для чётких цветов
+    s->set_saturation(s, 2);    // насыщенность вверх — цвета ярче
+    s->set_hmirror(s, 1);       // зеркало по горизонтали: 1=исправить зеркало
+    s->set_vflip(s, 1);         // вертикальный флип: 0=нет
+    s->set_awb_gain(s, 1);      // автобаланс белого вкл
+    s->set_whitebal(s, 1);      // баланс белого вкл
+    s->set_aec2(s, 1);          // автоэкспозиция вкл
+    s->set_gain_ctrl(s, 1);     // автоусиление вкл
   }
-  // ── VL53L0X на PORT A (G1=SDA, G2=SCL) ───────────────
-  Wire.begin(PORT_A_SDA, PORT_A_SCL);
-  vl53_ok = vl53.begin(0x29, false, &Wire);
-  if (vl53_ok) {
-    
-    Serial.println("VL53L0X OK (PORT A)");
-  } else {
-    Serial.println("VL53L0X ei leitud PORT A-l!");
-  }
+
   // ── Подключение к WiFi ─────────────────────────────────
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -247,15 +245,15 @@ void setup() {
     ESP.restart();
   }
 
-  // ── VL53L0X на PORT A (G1=SDA, G2=SCL) ───────────────
-  Wire.begin(PORT_A_SDA, PORT_A_SCL);
-  vl53_ok = vl53.begin(0x29, false, &Wire);
-  if (vl53_ok) {
+  // // ── VL53L0X на PORT A (G1=SDA, G2=SCL) ───────────────
+  // Wire.begin(PORT_A_SDA, PORT_A_SCL);
+  // vl53_ok = vl53.begin(0x29, false, &Wire);
+  // if (vl53_ok) {
     
-    Serial.println("VL53L0X OK (PORT A)");
-  } else {
-    Serial.println("VL53L0X ei leitud PORT A-l!");
-  }
+  //   Serial.println("VL53L0X OK (PORT A)");
+  // } else {
+  //   Serial.println("VL53L0X ei leitud PORT A-l!");
+  // }
 
   // ── HTTP маршруты ──────────────────────────────────────
   server.on("/stream",  handleStream);
@@ -265,15 +263,15 @@ void setup() {
 
   // Sensor task — core 0-l, stream on core 1-l
   // Nii töötavad paralleelselt ilma teineteist blokeerimata
-  xTaskCreatePinnedToCore(
-    sensorTask,    // funktsioon
-    "sensorTask",  // nimi
-    4096,          // stack suurus
-    NULL,          // parameetrid
-    1,             // prioriteet
-    NULL,          // task handle
-    0              // core 0 (loop() jookseb core 1-l)
-  );
+  // xTaskCreatePinnedToCore(
+  //   sensorTask,    // funktsioon
+  //   "sensorTask",  // nimi
+  //   4096,          // stack suurus
+  //   NULL,          // parameetrid
+  //   1,             // prioriteet
+  //   NULL,          // task handle
+  //   0              // core 0 (loop() jookseb core 1-l)
+  // );
 
   Serial.println("HTTP server started");
   Serial.println("Sensor task started on core 0");
