@@ -1,4 +1,4 @@
-# KAPO Tačka — Wiring Diagram
+# KAPO Ta4ka — Wiring Diagram
 
 A mobile robot built around a **XIAO ESP32-C3** main controller, two **DRI0044** motor drivers (4 stepper motors), an **AtomS3R M12** with OV3660 camera, an **ESP32-CAM** as a QR reader, plus I²C sensors (TCS34725 color, VL53L0X ToF).
 
