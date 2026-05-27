@@ -1,3 +1,49 @@
+## Spetsifikatsiooni uuendus pärast VP2 teste
+
+### Muudatused võrreldes VP1 spetsifikatsiooniga
+
+#### 1. Mootoridraivereid vahetus — MP6500 → DFRobot DRI0044
+
+**VP1 plaan:** 2× Pololu MP6500 sammmootorite draiver  
+**VP2 tulemus:** MP6500 ei tööta DC mootoridega  
+**Põhjus:** MP6500 kasutab STEP/DIR protokolli mis on disainitud sammmootorite jaoks. DC mootorid ei reageeri korrektselt STEP impulssidele — revers ei toiminud olenemata konfiguratsioonis.  
+**Lahendus:** Asendatud DFRobot DRI0044 (TB6612FNG) draiverriga mis on spetsiaalselt DC mootorite jaoks. Kasutab PWM+DIR protokolli, 3.3V ühilduv ESP32-ga, madal soojenergia kadu.
+
+#### 2. TCS34725 toide — 3.3V → 5V
+
+**VP1 plaan:** TCS34725 värvandur toidetud 3.3V XIAO ESP32-C3 pinilt  
+**VP2 tulemus:** Mootorite käivitamisel kustus anduri LED  
+**Põhjus:** Mootorite käivitamisel tekkis pingelangus 3.3V liinil. TCS34725 Gravity moodul vajab stabiilset toidet.  
+**Lahendus:** Ümber ühendatud 5V peale. Gravity TCS34725 toetab 3.3–5V — 5V on stabiilsem.  
+**Mõju elektrilisele arhitektuurile:** TCS34725 VCC → 5V (mitte 3.3V)
+
+#### 3. AtomS3R M12 ja VL53L0X arhitektuur
+
+**VP1 plaan:** VL53L0X kaugusandur XIAO ESP32-C3 peal  
+**VP2 tulemus:** AtomS3R M12 PORT A (G1/G2) on eraldi I2C siin mis ei konfliktseeri kaameraga  
+**Lahendus:** VL53L0X ühendatud AtomS3R M12 PORT A-sse. M5AtomLite haldab VL53L0X-i ja saadab andmed WiFi kaudu XIAO-le POST /sensor kaudu.
+
+#### 4. WebSocket puhvri ülekoormus
+
+**VP2 tulemus:** 100 käsku < 20ms vahega põhjustas WebSocket ühenduse katkemise  
+**Lahendus:** Minimaalne vahemik 30ms sõnumite vahel testis. Päris juhtimisel (nupuvajutus) see ei mõjuta — inimene ei vajuta kiiremini.  
+**Koodimuudatus:** Latentsustestis vahemik 20ms → 30ms
+
+#### 5. Spetsifikatsiooni jõudluseesmärkide uuendus
+
+| Parameeter | VP1 eesmärk | VP2 mõõdetud | Uuendus |
+|------------|-------------|--------------|---------|
+| Kiirus | 0.80 m/s | ~0.14 m/s | Uuendatud — reduktori kadu arvestatud |
+| WS latentsus | < 10 ms | 3–5 ms mediaan | Kinnitatud ✅ |
+| VL53L0X täpsus | ±3% | < 3% (10–150cm) | Kinnitatud ✅ |
+| TCS34725 täpsus | ≥ 4/5 värvi | 5/5 = 100% | Kinnitatud ✅ |
+| TCS34725 toide | 3.3V | 5V (muudetud) | Uuendatud |
+
+
+
+
+
+
 # KAPO Ta4ka — Wiring Diagram
 
 A mobile robot built around a **XIAO ESP32-C3** main controller, two **DRI0044** motor drivers (4 stepper motors), an **AtomS3R M12** with OV3660 camera, an **ESP32-CAM** as a QR reader, plus I²C sensors (TCS34725 color, VL53L0X ToF).
