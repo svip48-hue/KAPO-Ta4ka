@@ -220,15 +220,29 @@ String readColor() {
   return "other";
 }
 
+// Порог автостопа по дальномеру (см)
+#define OBSTACLE_STOP_CM  10.0
+
 void updateSensors() {
   if (millis() - lastSensorMs < SENSOR_INTERVAL_MS) return;
   lastSensorMs = millis();
 
-  // Цвет читаем локально
   sensorColor = readColor();
 
-  // Расстояние приходит от AtomS3R через POST /sensor
-  // Отправить всем браузерам через WebSocket
+  // ── Автостоп по дальномеру ────────────────────────────────
+  // Если препятствие ближе 10см и едем вперёд — стоп
+  if (sensorDist > 0 && sensorDist < OBSTACLE_STOP_CM) {
+    if (leftDir == FORWARD || rightDir == FORWARD) {
+      setMotors(STOPPED, STOPPED, 0, 0);
+      isDriving   = false;
+      autoStopped = true;
+      Serial.printf("OBSTACLE STOP! dist=%.1f cm\n", sensorDist);
+      // Уведомить браузер
+      wsServer.broadcastTXT("{\"type\":\"obstacle\",\"dist\":" + String(sensorDist) + "}");
+    }
+  }
+
+  // Отправить данные браузеру через WebSocket
   StaticJsonDocument<128> doc;
   doc["type"]  = "sensors";
   doc["dist"]  = sensorDist;
@@ -301,18 +315,13 @@ void applyCommand(const String& cmd) {
         Serial.printf("Latency (cmd->reply): %u us\n", latency_us);
     }
     else if (cmd == "LAT_MOTOR") {
-        // Измеряем задержку от получения команды до физического изменения моторов
-        // Сначала принудительно применяем краткое движение вперёд на 10 мс, чтобы моторы точно изменили состояние
         setMotors(FORWARD, FORWARD, MIN_SPEED, MIN_SPEED);
         uint32_t t_apply = micros();
         uint32_t latency_us = t_apply - lastCmdReceiveTime;
-        // Возвращаем моторы в стоп
-        delay(10);
         setMotors(STOPPED, STOPPED, 0, 0);
-        // Отправляем результат
         String reply = "MOTOR_LATENCY " + String(latency_us) + " us";
         wsServer.broadcastTXT(reply);
-        Serial.printf("Motor latency (cmd->apply): %u us\n", latency_us);
+        Serial.printf("Motor latency: %u us\n", latency_us);
     }
 
     // ---- ЗАПОМИНАЕМ ВРЕМЯ ПРИМЕНЕНИЯ (для будущих измерений) ----
@@ -533,6 +542,10 @@ const WS_PORT = 81;
 let ws, wsReady = false;
 const cmdNames = {F:'вперёд',B:'назад',L:'влево',R:'вправо',S:'стоп'};
 
+// Объявляем переменные для кнопки теста
+let testBtn, statsDiv, testActive = false;
+let currentSpeed = 180;
+
 async function runLatencyTest() {
   if (testActive || !wsReady || ws.readyState !== WebSocket.OPEN) {
     alert('Нет соединения');
@@ -546,9 +559,10 @@ async function runLatencyTest() {
   const N = 100;
   let rttResults = [];
 
-  // 1. Измеряем RTT через PING
+  // 1. Измеряем RTT через PING — пауза 30мс между командами
   for (let i = 0; i < N; i++) {
-    const id = Date.now() + i + Math.random();
+    if (ws.readyState !== WebSocket.OPEN) break;  // стоп если соединение упало
+    const id = Date.now() + i;
     const start = performance.now();
     ws.send('PING' + id);
     const rtt = await new Promise((resolve) => {
@@ -559,19 +573,19 @@ async function runLatencyTest() {
         }
       };
       ws.addEventListener('message', handler);
-      // таймаут на всякий случай
-      setTimeout(() => { ws.removeEventListener('message', handler); resolve(null); }, 1000);
+      setTimeout(() => { ws.removeEventListener('message', handler); resolve(null); }, 500);
     });
     if (rtt !== null) rttResults.push(rtt);
     testBtn.textContent = `Тест RTT... ${i+1}/${N}`;
-    await new Promise(r => setTimeout(r, 20)); // небольшая пауза
+    await new Promise(r => setTimeout(r, 30));  // 30мс пауза — не перегружаем буфер
   }
 
-  // 2. Измеряем задержку мотора (LAT_MOTOR)
+  // 2. Измеряем задержку мотора — пауза 50мс (моторы успевают остановиться)
   testBtn.textContent = 'Замер мотора... 0/100';
   let motorLatencies = [];
 
   for (let i = 0; i < N; i++) {
+    if (ws.readyState !== WebSocket.OPEN) break;
     ws.send('LAT_MOTOR');
     const motorUs = await new Promise((resolve) => {
       const handler = (e) => {
@@ -582,22 +596,19 @@ async function runLatencyTest() {
         }
       };
       ws.addEventListener('message', handler);
-      setTimeout(() => { ws.removeEventListener('message', handler); resolve(null); }, 200);
+      setTimeout(() => { ws.removeEventListener('message', handler); resolve(null); }, 500);
     });
-    if (motorUs !== null) motorLatencies.push(motorUs / 1000); // в мс
+    if (motorUs !== null) motorLatencies.push(motorUs / 1000);
     testBtn.textContent = `Замер мотора... ${i+1}/${N}`;
-    await new Promise(r => setTimeout(r, 20));
+    await new Promise(r => setTimeout(r, 50));  // 50мс — мотор успевает остановиться
   }
 
   // Статистика RTT
   if (rttResults.length) {
     rttResults.sort((a,b)=>a-b);
-    const minRtt = rttResults[0];
-    const maxRtt = rttResults[rttResults.length-1];
-    const medianRtt = rttResults[Math.floor(rttResults.length/2)];
-    document.getElementById('lat-min').innerText = minRtt.toFixed(2);
-    document.getElementById('lat-med').innerText = medianRtt.toFixed(2);
-    document.getElementById('lat-max').innerText = maxRtt.toFixed(2);
+    document.getElementById('lat-min').innerText = rttResults[0].toFixed(2);
+    document.getElementById('lat-med').innerText = rttResults[Math.floor(rttResults.length/2)].toFixed(2);
+    document.getElementById('lat-max').innerText = rttResults[rttResults.length-1].toFixed(2);
   } else {
     document.getElementById('lat-min').innerText = 'ошибка';
   }
@@ -619,24 +630,27 @@ async function runLatencyTest() {
 }
 
 // Привязываем кнопку
-testBtn.onclick = runLatencyTest;
-
 function connect() {
   ws = new WebSocket('ws://' + location.hostname + ':' + WS_PORT + '/');
   ws.onopen = () => {
     wsReady = true;
     dot(true);
+    // Очищаем данные датчиков при новом подключении
+    document.getElementById('s-dist').textContent = '—';
+    document.getElementById('s-colorname').textContent = '—';
+    document.getElementById('s-dot').style.background = '#555';
   };
   ws.onmessage = e => {
     try {
       const d = JSON.parse(e.data);
-      if (d.type === 'sensors') updateSensorUI(d);
+      if (d.type === 'sensors')  updateSensorUI(d);
+      if (d.type === 'obstacle') showObstacleWarning(d.dist);
+      if (d.type === 'qr')       console.log('QR:', d.qr);
     } catch {}
   };
   ws.onclose = () => {
     wsReady = false;
     dot(false);
-    // Переподключение через 1с
     setTimeout(connect, 1000);
   };
   ws.onerror = () => ws.close();
@@ -699,15 +713,24 @@ document.addEventListener('keyup', e => {
 });
 
 // ── Скорость ───────────────────────────────────────────────
-const slider = document.getElementById('spd-slider');
 let speedTimer = null;
-slider.addEventListener('input', () => {
-  const pct = Math.round((slider.value - 50) / 1950 * 100);
-  document.getElementById('spd-val').textContent = pct + '%';
-  // Дебаунс — не спамить пока тянешь слайдер
-  clearTimeout(speedTimer);
-  speedTimer = setTimeout(() => send('V' + slider.value), 80);
-});
+
+function initUI() {
+  testBtn  = document.getElementById('test-latency-btn');
+  statsDiv = document.getElementById('latency-stats');
+  if (testBtn) testBtn.onclick = runLatencyTest;
+
+  const slider = document.getElementById('spd-slider');
+  if (slider) {
+    slider.addEventListener('input', () => {
+      currentSpeed = Math.round(slider.value * 255 / 2000);
+      const pct = Math.round((slider.value - 50) / 1950 * 100);
+      document.getElementById('spd-val').textContent = pct + '%';
+      clearTimeout(speedTimer);
+      speedTimer = setTimeout(() => send('V' + slider.value), 80);
+    });
+  }
+}
 
 // ── Камера ─────────────────────────────────────────────────
 let camOn = false;
@@ -732,7 +755,11 @@ function toggleCam() {
     document.getElementById('live-badge').classList.remove('on');
   }
 }
-function camOk()   { document.getElementById('live-badge').classList.add('on'); }
+function camOk()   {
+  document.getElementById('live-badge').classList.add('on');
+  // Включаем click-to-drive на изображении камеры
+  document.getElementById('cam-img').style.cursor = 'crosshair';
+}
 function camFail() {
   document.getElementById('live-badge').classList.remove('on');
   if (camOn) {
@@ -740,6 +767,47 @@ function camFail() {
     document.getElementById('cam-ph').style.display = 'block';
     document.getElementById('cam-img').classList.remove('on');
   }
+}
+
+// ── Click-to-drive ──────────────────────────────────────────
+document.getElementById('cam-img').addEventListener('click', (e) => {
+  if (!wsReady || !camOn) return;
+  const rect = e.target.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;   // 0=лево 1=право
+  const y = (e.clientY - rect.top)  / rect.height;  // 0=верх 1=низ
+
+  // Угол поворота по X: -1.0 (влево) до +1.0 (вправо)
+  const turn = (x - 0.5) * 2.0;
+
+  // Время езды по Y: верх=далеко(2000мс), низ=близко(200мс)
+  const driveTime = Math.round(200 + (1.0 - y) * 1800);
+
+  // Скорости бортов
+  const base = currentSpeed;
+  let lSpd = Math.round(base * (1.0 + turn * 0.8));
+  let rSpd = Math.round(base * (1.0 - turn * 0.8));
+  lSpd = Math.max(0, Math.min(255, lSpd));
+  rSpd = Math.max(0, Math.min(255, rSpd));
+
+  send(`DRIVE ${lSpd} ${rSpd} ${driveTime}`);
+
+  // Визуальный отклик — показать точку клика
+  showClickDot(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
+  document.getElementById('cur-cmd').textContent = `click-to-drive (${driveTime}мс)`;
+});
+
+function showClickDot(px, py, w, h) {
+  let dot = document.getElementById('click-dot');
+  if (!dot) {
+    dot = document.createElement('div');
+    dot.id = 'click-dot';
+    dot.style.cssText = 'position:absolute;width:16px;height:16px;border-radius:50%;background:rgba(79,142,247,0.8);border:2px solid white;pointer-events:none;transform:translate(-50%,-50%);transition:opacity 0.5s;z-index:10;';
+    document.querySelector('.cam-box').appendChild(dot);
+  }
+  dot.style.left = (px / w * 100) + '%';
+  dot.style.top  = (py / h * 100) + '%';
+  dot.style.opacity = '1';
+  setTimeout(() => { dot.style.opacity = '0'; }, 600);
 }
 
 // ── Старт ──────────────────────────────────────────────────
@@ -751,6 +819,15 @@ const colorName = {
   white:'Valge', black:'Must', red:'Punane',
   blue:'Sinine', green:'Roheline', other:'Muu', unknown:'—'
 };
+
+function showObstacleWarning(dist) {
+  const el = document.getElementById('s-dist');
+  el.style.color = 'var(--danger)';
+  el.textContent = dist.toFixed(1) + ' ⚠️';
+  // Вибрация на телефоне
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+  setTimeout(() => { el.style.color = 'var(--text)'; }, 2000);
+}
 
 function updateSensorUI(d) {
   // Kaugus
@@ -766,6 +843,7 @@ function updateSensorUI(d) {
 }
 
 connect();
+initUI();
 </script>
 </body>
 </html>
