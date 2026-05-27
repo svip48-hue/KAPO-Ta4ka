@@ -91,11 +91,15 @@ volatile MotorDir leftDir = STOPPED;
 volatile MotorDir rightDir = STOPPED;
 
 // Глобальная скорость (ОБЪЯВЛЯЕМ ДО ИСПОЛЬЗОВАНИЯ)
-volatile int currentSpeed = 180;  // ~70% от максимума
+volatile int currentSpeed = 180;  // 
 
 // Автостоп
 unsigned long lastCmdMs = 0;
 bool autoStopped = false;
+
+// ── Click-to-drive ─────────────────────────────────────────
+unsigned long driveUntilMs = 0;
+bool isDriving = false;
 
 // ── Серверы ────────────────────────────────────────────────
 WebServer       httpServer(80);
@@ -258,13 +262,32 @@ void applyCommand(const String& cmd) {
     setMotors(BACKWARD, FORWARD, currentSpeed, currentSpeed);  // разворот на месте
   }
   else if (cmd == "S") {
+    isDriving = false;
     setMotors(STOPPED, STOPPED, 0, 0);
   }
   else if (cmd.startsWith("V")) {
     uint32_t v = cmd.substring(1).toInt();
-    // Маппинг: слайдер 50..2000 → скорость MIN_SPEED..MAX_SPEED
     int mappedSpeed = map(v, 50, 2000, MIN_SPEED, MAX_SPEED);
     setSpeed(mappedSpeed);
+  }
+  // ── Click-to-drive: DRIVE lSpd rSpd durationMs ────────────
+  else if (cmd.startsWith("DRIVE")) {
+    int lSpd, rSpd, duration;
+    if (sscanf(cmd.c_str(), "DRIVE %d %d %d", &lSpd, &rSpd, &duration) == 3) {
+      lSpd     = constrain(lSpd, 0, MAX_SPEED);
+      rSpd     = constrain(rSpd, 0, MAX_SPEED);
+      duration = constrain(duration, 50, 3000);
+
+      // Определяем направление по скорости бортов
+      MotorDir lDir = (lSpd > 0) ? FORWARD : STOPPED;
+      MotorDir rDir = (rSpd > 0) ? FORWARD : STOPPED;
+      setMotors(lDir, rDir, lSpd, rSpd);
+
+      driveUntilMs = millis() + duration;
+      isDriving    = true;
+
+      Serial.printf("DRIVE: L=%d R=%d t=%dms\n", lSpd, rSpd, duration);
+    }
   }
    // ---- ДОБАВЛЯЕМ ОБРАБОТКУ LAT ----
     else if (cmd == "LAT") {
@@ -317,24 +340,21 @@ void onWsEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
     case WStype_TEXT: {
       String msg = String((char*)payload);
       msg.trim();
-      applyCommand(msg);
-      break;
-    }
-    case WStype_TEXT: {
-    String msg = String((char*)payload);
-    msg.trim();
-    
-    // ----- ПИНГ ДЛЯ ИЗМЕРЕНИЯ RTT -----
+      // ----- ПИНГ ДЛЯ ИЗМЕРЕНИЯ RTT -----
     if (msg.startsWith("PING")) {
         // Формат: PING<число>
         uint32_t id = msg.substring(4).toInt();
         wsServer.sendTXT(num, "PONG" + String(id));
         break;
     }
+    if (msg == "REBOOT") {
+    ESP.restart();
+    }
     // ----- ОБЫЧНЫЕ КОМАНДЫ ДВИЖЕНИЯ -----
     applyCommand(msg);
     break;
-}
+    }
+  
 
     default: break;
   }
@@ -836,8 +856,15 @@ if (tcs_ok && (millis() - lastColorPrintMs >= COLOR_PRINT_INTERVAL_MS)) {
 }
   updateSensors();
 
-  // ── Автостоп ─────────────────────────────────────────────
-  if (!autoStopped && (leftDir != STOPPED || rightDir != STOPPED)) {
+  // ── Click-to-drive автостоп ───────────────────────────────
+  if (isDriving && millis() >= driveUntilMs) {
+    setMotors(STOPPED, STOPPED, 0, 0);
+    isDriving = false;
+    Serial.println("DRIVE complete → stop");
+  }
+
+  // ── Автостоп по таймауту ──────────────────────────────────
+  if (!autoStopped && !isDriving && (leftDir != STOPPED || rightDir != STOPPED)) {
     if (millis() - lastCmdMs > WS_TIMEOUT_MS) {
       setMotors(STOPPED, STOPPED, 0, 0);
       autoStopped = true;
