@@ -220,6 +220,15 @@ String readColor() {
   return "other";
 }
 
+// Температура чипа ESP32-C3
+float readChipTemp() {
+  return temperatureRead();  // встроенная функция Arduino ESP32
+}
+
+// Данные температур от других устройств
+float temp_lite  = -1;  // AtomLite
+float temp_atoms3r = -1; // AtomS3R (если добавим)
+
 // Порог автостопа по дальномеру (см)
 #define OBSTACLE_STOP_CM  10.0
 
@@ -230,23 +239,24 @@ void updateSensors() {
   sensorColor = readColor();
 
   // ── Автостоп по дальномеру ────────────────────────────────
-  // Если препятствие ближе 10см и едем вперёд — стоп
   if (sensorDist > 0 && sensorDist < OBSTACLE_STOP_CM) {
     if (leftDir == FORWARD || rightDir == FORWARD) {
       setMotors(STOPPED, STOPPED, 0, 0);
       isDriving   = false;
       autoStopped = true;
-      Serial.printf("OBSTACLE STOP! dist=%.1f cm\n", sensorDist);
-      // Уведомить браузер
       wsServer.broadcastTXT("{\"type\":\"obstacle\",\"dist\":" + String(sensorDist) + "}");
     }
   }
 
   // Отправить данные браузеру через WebSocket
-  StaticJsonDocument<128> doc;
-  doc["type"]  = "sensors";
-  doc["dist"]  = sensorDist;
-  doc["color"] = sensorColor;
+  float temp_xiao = readChipTemp();
+  StaticJsonDocument<256> doc;
+  doc["type"]      = "sensors";
+  doc["dist"]      = sensorDist;
+  doc["color"]     = sensorColor;
+  doc["temp_xiao"] = (int)temp_xiao;
+  if (temp_lite > 0)    doc["temp_lite"]   = (int)temp_lite;
+  if (temp_atoms3r > 0) doc["temp_atoms3r"] = (int)temp_atoms3r;
   String msg;
   serializeJson(doc, msg);
   wsServer.broadcastTXT(msg);
@@ -408,16 +418,26 @@ const char INDEX_HTML[] PROGMEM = R"rawhtml(
   .slabel{transition:color .3s}
 
   /* камера */
-  .cam-section{width:100%;max-width:480px;display:flex;flex-direction:column;gap:6px}
+  .cam-section{width:100%;display:flex;flex-direction:column;gap:6px}
   .cam-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}
   .cam-toggle{background:var(--btn-bg);border:1px solid var(--border);border-radius:8px;
     color:var(--text);font-size:11px;padding:3px 10px;cursor:pointer}
   .cam-toggle.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .cam-ip{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;
     color:var(--text);font-size:12px;padding:4px 8px;outline:none;width:100%}
-  .cam-box{width:100%;aspect-ratio:4/3;background:#0a0a10;border:1px solid var(--border);
-    border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
-  .cam-box img{width:100%;height:100%;object-fit:cover;display:none;transform: rotate(270deg)}
+  .cam-box{
+    width:100%;
+    aspect-ratio:4/3;
+    background:#0a0a10;
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  .cam-box img{width:100%;height:100%;object-fit:fill;display:none;transform: rotate(-90deg)}
   .cam-box img.on{display:block}
   .cam-ph{color:var(--muted);font-size:12px;text-align:center;padding:16px;line-height:1.8}
   .live-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);
@@ -503,6 +523,16 @@ const char INDEX_HTML[] PROGMEM = R"rawhtml(
       <span class="color-dot" id="s-dot" style="background:#555"></span>
       <span id="s-colorname">—</span>
     </div>
+  </div>
+  <div class="sensor-card">
+    <div class="sensor-label">🌡 XIAO temp</div>
+    <div class="sensor-value" id="s-temp-xiao">—</div>
+    <div class="sensor-unit">°C</div>
+  </div>
+  <div class="sensor-card">
+    <div class="sensor-label">🌡 Lite temp</div>
+    <div class="sensor-value" id="s-temp-lite">—</div>
+    <div class="sensor-unit">°C</div>
   </div>
 </div>
 
@@ -830,16 +860,29 @@ function showObstacleWarning(dist) {
 }
 
 function updateSensorUI(d) {
-  // Kaugus
+  // Расстояние
   const distEl = document.getElementById('s-dist');
   distEl.textContent = d.dist > 0 ? d.dist.toFixed(1) : '—';
-  // Hoiatus kui liiga lähedal
   distEl.style.color = (d.dist > 0 && d.dist < 15) ? 'var(--danger)' : 'var(--text)';
 
-  // Värv
+  // Цвет
   const c = d.color || 'unknown';
   document.getElementById('s-dot').style.background = colorMap[c] || '#555';
   document.getElementById('s-colorname').textContent = colorName[c] || c;
+
+  // Температура XIAO
+  if (d.temp_xiao !== undefined) {
+    const el = document.getElementById('s-temp-xiao');
+    el.textContent = d.temp_xiao + '°';
+    el.style.color = d.temp_xiao > 70 ? 'var(--danger)' : d.temp_xiao > 55 ? '#FFA500' : 'var(--text)';
+  }
+
+  // Температура AtomLite
+  if (d.temp_lite !== undefined) {
+    const el = document.getElementById('s-temp-lite');
+    el.textContent = d.temp_lite + '°';
+    el.style.color = d.temp_lite > 70 ? 'var(--danger)' : d.temp_lite > 55 ? '#FFA500' : 'var(--text)';
+  }
 }
 
 connect();
@@ -863,8 +906,8 @@ void handleSensor() {
   if (!httpServer.hasArg("plain")) { httpServer.send(400, "text/plain", "no body"); return; }
   StaticJsonDocument<128> doc;
   if (deserializeJson(doc, httpServer.arg("plain"))) { httpServer.send(400, "text/plain", "bad json"); return; }
-  if (doc.containsKey("dist")) sensorDist = doc["dist"].as<float>();
-  Serial.printf("Sensor received: dist=%.1f\n", sensorDist);
+  if (doc.containsKey("dist"))      sensorDist = doc["dist"].as<float>();
+  if (doc.containsKey("temp_lite")) temp_lite  = doc["temp_lite"].as<float>();
   httpServer.send(200, "text/plain", "ok");
 }
 
@@ -924,21 +967,12 @@ void setup() {
 void loop() {
   httpServer.handleClient();
   wsServer.loop();
-  // Вывод сырых данных TCS34725 в Serial (для отладки)
-if (tcs_ok && (millis() - lastColorPrintMs >= COLOR_PRINT_INTERVAL_MS)) {
-    lastColorPrintMs = millis();
-    uint16_t r, g, b, c;
-    tcs.getRawData(&r, &g, &b, &c);
-    String colorName = readColor();
-    Serial.printf("COLOR_RAW: R=%4d G=%4d B=%4d C=%4d -> %s\n", r, g, b, c, colorName.c_str());
-}
   updateSensors();
 
   // ── Click-to-drive автостоп ───────────────────────────────
   if (isDriving && millis() >= driveUntilMs) {
     setMotors(STOPPED, STOPPED, 0, 0);
     isDriving = false;
-    Serial.println("DRIVE complete → stop");
   }
 
   // ── Автостоп по таймауту ──────────────────────────────────
@@ -946,7 +980,6 @@ if (tcs_ok && (millis() - lastColorPrintMs >= COLOR_PRINT_INTERVAL_MS)) {
     if (millis() - lastCmdMs > WS_TIMEOUT_MS) {
       setMotors(STOPPED, STOPPED, 0, 0);
       autoStopped = true;
-      Serial.println("Autostop triggered");
     }
   }
 }
