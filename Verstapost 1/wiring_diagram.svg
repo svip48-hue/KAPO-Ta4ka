@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100%" viewBox="0 0 680 860" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff">
+<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <!-- wire colors -->
+</defs>
+
+<!-- ═══════════════════════════════════════════════
+     BATTERY  (top-left)
+════════════════════════════════════════════════ -->
+<g>
+  <rect x="20" y="30" width="110" height="64" rx="8" fill="#FAEEDA" stroke="#BA7517" stroke-width="0.8"/>
+  <text x="75" y="51" text-anchor="middle" font-size="12" font-weight="500" fill="#633806">2S 18500</text>
+  <text x="75" y="66" text-anchor="middle" font-size="11" fill="#854F0B">7.4 V Li-ion</text>
+  <text x="75" y="82" text-anchor="middle" font-size="11" fill="#854F0B">Sony Murata 30A</text>
+  <!-- + - labels -->
+  <text x="28" y="26" font-size="10" fill="#854F0B" font-weight="500">+</text>
+  <text x="119" y="26" font-size="10" fill="#854F0B" font-weight="500">−</text>
+</g>
+
+<!-- ═══════════════════════════════════════════════
+     47µF CAP (protection)
+════════════════════════════════════════════════ -->
+<g>
+  <rect x="158" y="36" width="60" height="50" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+  <text x="188" y="56" text-anchor="middle" font-size="11" font-weight="500" fill="#085041">47µF</text>
+  <text x="188" y="70" text-anchor="middle" font-size="10" fill="#0F6E56">electrolytic</text>
+  <text x="188" y="82" text-anchor="middle" font-size="10" fill="#0F6E56">cap ×2</text>
+</g>
+
+<!-- battery + → cap+ -->
+<line x1="75" y1="30" x2="75" y2="18" stroke="#cc3300" stroke-width="1.8"/>
+<line x1="75" y1="18" x2="188" y2="18" stroke="#cc3300" stroke-width="1.8"/>
+<line x1="188" y1="18" x2="188" y2="36" stroke="#cc3300" stroke-width="1.8"/>
+<!-- battery - → cap- (share GND rail) -->
+<line x1="130" y1="62" x2="218" y2="62" stroke="#444" stroke-width="1.5" stroke-dasharray="3 2"/>
+
+<!-- VMOT power rail label -->
+<text x="120" y="14" font-size="10" fill="#cc3300" font-weight="500">VMOT rail (7.4V)</text>
+
+<!-- ═══════════════════════════════════════════════
+     XIAO ESP32-C3  (center)
+════════════════════════════════════════════════ -->
+<g>
+  <rect x="245" y="20" width="190" height="200" rx="10" fill="#E6F1FB" stroke="#185FA5" stroke-width="1"/>
+  <text x="340" y="42" text-anchor="middle" font-size="13" font-weight="500" fill="#042C53">XIAO ESP32-C3</text>
+  <!-- pin rows -->
+  <!-- left side pins -->
+  <text x="258" y="68"  font-size="10" fill="#0C447C">D0/GPIO2</text>
+  <text x="258" y="86"  font-size="10" fill="#0C447C">D1/GPIO3</text>
+  <text x="258" y="104" font-size="10" fill="#0C447C">D2/GPIO4</text>
+  <text x="258" y="122" font-size="10" fill="#0C447C">D3/GPIO5</text>
+  <text x="258" y="140" font-size="10" fill="#0C447C">D4/GPIO6</text>
+  <text x="258" y="158" font-size="10" fill="#0C447C">D5/GPIO7</text>
+  <!-- right side pins -->
+  <text x="418" y="68"  font-size="10" fill="#0C447C" text-anchor="end">3V3</text>
+  <text x="418" y="86"  font-size="10" fill="#0C447C" text-anchor="end">GND</text>
+  <!-- pin dots left -->
+  <circle cx="248" cy="65"  r="3" fill="#185FA5"/>
+  <circle cx="248" cy="83"  r="3" fill="#185FA5"/>
+  <circle cx="248" cy="101" r="3" fill="#185FA5"/>
+  <circle cx="248" cy="119" r="3" fill="#185FA5"/>
+  <circle cx="248" cy="137" r="3" fill="#185FA5"/>
+  <circle cx="248" cy="155" r="3" fill="#185FA5"/>
+  <!-- pin dots right -->
+  <circle cx="432" cy="65"  r="3" fill="#185FA5"/>
+  <circle cx="432" cy="83"  r="3" fill="#185FA5"/>
+
+  <!-- function labels inside box -->
+  <text x="340" y="185" text-anchor="middle" font-size="10" fill="#378ADD">WiFi AP • Web server</text>
+  <text x="340" y="200" text-anchor="middle" font-size="10" fill="#378ADD">3.3V logic • 80MHz</text>
+</g>
+
+<!-- ═══════════════════════════════════════════════
+     MP6500 #1  LEFT SIDE  (bottom-left)
+════════════════════════════════════════════════ -->
+<g>
+  <rect x="20" y="290" width="200" height="300" rx="10" fill="#EAF3DE" stroke="#3B6D11" stroke-width="1"/>
+  <text x="120" y="312" text-anchor="middle" font-size="13" font-weight="500" fill="#173404">MP6500  #1</text>
+  <text x="120" y="327" text-anchor="middle" font-size="11" fill="#3B6D11">Left side</text>
+
+  <!-- pin list with right-side dots -->
+  <!-- input pins (right side of board) -->
+  <text x="170" y="355" font-size="10" fill="#27500A" text-anchor="end">STEP</text>
+  <text x="170" y="373" font-size="10" fill="#27500A" text-anchor="end">DIR</text>
+  <text x="170" y="391" font-size="10" fill="#27500A" text-anchor="end">SLEEP</text>
+  <text x="170" y="409" font-size="10" fill="#27500A" text-anchor="end">ENBL</text>
+  <text x="170" y="427" font-size="10" fill="#27500A" text-anchor="end">MS1</text>
+  <text x="170" y="445" font-size="10" fill="#27500A" text-anchor="end">MS2</text>
+  <text x="170" y="463" font-size="10" fill="#27500A" text-anchor="end">I1</text>
+  <text x="170" y="481" font-size="10" fill="#27500A" text-anchor="end">I2</text>
+  <circle cx="178" cy="352" r="3" fill="#639922"/>
+  <circle cx="178" cy="370" r="3" fill="#639922"/>
+  <circle cx="178" cy="388" r="3" fill="#639922"/>
+  <circle cx="178" cy="406" r="3" fill="#639922"/>
+  <circle cx="178" cy="424" r="3" fill="#639922"/>
+  <circle cx="178" cy="442" r="3" fill="#639922"/>
+  <circle cx="178" cy="460" r="3" fill="#639922"/>
+  <circle cx="178" cy="478" r="3" fill="#639922"/>
+
+  <!-- power pins left side -->
+  <text x="30" y="355" font-size="10" fill="#27500A">VMOT</text>
+  <text x="30" y="373" font-size="10" fill="#27500A">GND</text>
+  <text x="30" y="391" font-size="10" fill="#27500A">VDD</text>
+  <circle cx="22" cy="352" r="3" fill="#639922"/>
+  <circle cx="22" cy="370" r="3" fill="#639922"/>
+  <circle cx="22" cy="388" r="3" fill="#639922"/>
+
+  <!-- motor output left side -->
+  <text x="30" y="480" font-size="10" fill="#27500A">1A</text>
+  <text x="30" y="498" font-size="10" fill="#27500A">1B</text>
+  <text x="30" y="516" font-size="10" fill="#27500A">2A</text>
+  <text x="30" y="534" font-size="10" fill="#27500A">2B</text>
+  <circle cx="22" cy="477" r="3" fill="#639922"/>
+  <circle cx="22" cy="495" r="3" fill="#639922"/>
+  <circle cx="22" cy="513" r="3" fill="#639922"/>
+  <circle cx="22" cy="531" r="3" fill="#639922"/>
+
+  <text x="120" y="570" text-anchor="middle" font-size="10" fill="#3B6D11">Coil A: 1A+1B  Coil B: 2A+2B</text>
+</g>
+
+<!-- ═══════════════════════════════════════════════
+     MP6500 #2  RIGHT SIDE  (bottom-right)
+════════════════════════════════════════════════ -->
+<g>
+  <rect x="460" y="290" width="200" height="300" rx="10" fill="#EAF3DE" stroke="#3B6D11" stroke-width="1"/>
+  <text x="560" y="312" text-anchor="middle" font-size="13" font-weight="500" fill="#173404">MP6500  #2</text>
+  <text x="560" y="327" text-anchor="middle" font-size="11" fill="#3B6D11">Right side</text>
+
+  <!-- input pins left side of board -->
+  <text x="510" y="355" font-size="10" fill="#27500A">STEP</text>
+  <text x="510" y="373" font-size="10" fill="#27500A">DIR</text>
+  <text x="510" y="391" font-size="10" fill="#27500A">SLEEP</text>
+  <text x="510" y="409" font-size="10" fill="#27500A">ENBL</text>
+  <text x="510" y="427" font-size="10" fill="#27500A">MS1</text>
+  <text x="510" y="445" font-size="10" fill="#27500A">MS2</text>
+  <text x="510" y="463" font-size="10" fill="#27500A">I1</text>
+  <text x="510" y="481" font-size="10" fill="#27500A">I2</text>
+  <circle cx="502" cy="352" r="3" fill="#639922"/>
+  <circle cx="502" cy="370" r="3" fill="#639922"/>
+  <circle cx="502" cy="388" r="3" fill="#639922"/>
+  <circle cx="502" cy="406" r="3" fill="#639922"/>
+  <circle cx="502" cy="424" r="3" fill="#639922"/>
+  <circle cx="502" cy="442" r="3" fill="#639922"/>
+  <circle cx="502" cy="460" r="3" fill="#639922"/>
+  <circle cx="502" cy="478" r="3" fill="#639922"/>
+
+  <!-- power pins right side -->
+  <text x="618" y="355" font-size="10" fill="#27500A" text-anchor="end">VMOT</text>
+  <text x="618" y="373" font-size="10" fill="#27500A" text-anchor="end">GND</text>
+  <text x="618" y="391" font-size="10" fill="#27500A" text-anchor="end">VDD</text>
+  <circle cx="658" cy="352" r="3" fill="#639922"/>
+  <circle cx="658" cy="370" r="3" fill="#639922"/>
+  <circle cx="658" cy="388" r="3" fill="#639922"/>
+
+  <!-- motor outputs right -->
+  <text x="618" y="480" font-size="10" fill="#27500A" text-anchor="end">1A</text>
+  <text x="618" y="498" font-size="10" fill="#27500A" text-anchor="end">1B</text>
+  <text x="618" y="516" font-size="10" fill="#27500A" text-anchor="end">2A</text>
+  <text x="618" y="534" font-size="10" fill="#27500A" text-anchor="end">2B</text>
+  <circle cx="658" cy="477" r="3" fill="#639922"/>
+  <circle cx="658" cy="495" r="3" fill="#639922"/>
+  <circle cx="658" cy="513" r="3" fill="#639922"/>
+  <circle cx="658" cy="531" r="3" fill="#639922"/>
+
+  <text x="560" y="570" text-anchor="middle" font-size="10" fill="#3B6D11">Coil A: 1A+1B  Coil B: 2A+2B</text>
+</g>
+
+<!-- ═══════════════════════════════════════════════
+     MOTORS (left pair)
+════════════════════════════════════════════════ -->
+<g>
+  <rect x="20" y="630" width="88" height="40" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.7"/>
+  <text x="64" y="655" text-anchor="middle" font-size="11" font-weight="500" fill="#2C2C2A">Motor L1</text>
+</g>
+<g>
+  <rect x="116" y="630" width="88" height="40" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.7"/>
+  <text x="160" y="655" text-anchor="middle" font-size="11" font-weight="500" fill="#2C2C2A">Motor L2</text>
+</g>
+
+<!-- ═══════════════════════════════════════════════
+     MOTORS (right pair)
+════════════════════════════════════════════════ -->
+<g>
+  <rect x="476" y="630" width="88" height="40" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.7"/>
+  <text x="520" y="655" text-anchor="middle" font-size="11" font-weight="500" fill="#2C2C2A">Motor R1</text>
+</g>
+<g>
+  <rect x="572" y="630" width="88" height="40" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.7"/>
+  <text x="616" y="655" text-anchor="middle" font-size="11" font-weight="500" fill="#2C2C2A">Motor R2</text>
+</g>
+
+<!-- ═══════════════════════════════════════════════
+     WIRES: ESP → MP6500 #1
+════════════════════════════════════════════════ -->
+<!-- STEP: D0 → #1 STEP (orange) -->
+<path d="M248 65 L220 65 L220 352 L178 352" fill="none" stroke="#E85D24" stroke-width="1.4" marker-end="url(#arr)"/>
+<!-- DIR: D1 → #1 DIR (purple) -->
+<path d="M248 83 L216 83 L216 370 L178 370" fill="none" stroke="#7c5cfc" stroke-width="1.4" marker-end="url(#arr)"/>
+<!-- EN (SLEEP via D2): D2 → #1 SLEEP (yellow-green) -->
+<path d="M248 101 L212 101 L212 388 L178 388" fill="none" stroke="#8bc34a" stroke-width="1.4" marker-end="url(#arr)"/>
+
+<!-- ═══════════════════════════════════════════════
+     WIRES: ESP → MP6500 #2
+════════════════════════════════════════════════ -->
+<!-- STEP: D3 → #2 STEP (orange dashed) -->
+<path d="M435 119 L460 119 L460 352 L502 352" fill="none" stroke="#E85D24" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#arr)"/>
+<!-- DIR: D4 → #2 DIR -->
+<path d="M435 137 L456 137 L456 370 L502 370" fill="none" stroke="#7c5cfc" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#arr)"/>
+<!-- SLEEP: D5 → #2 SLEEP -->
+<path d="M435 155 L452 155 L452 388 L502 388" fill="none" stroke="#8bc34a" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#arr)"/>
+
+<!-- ESP D3/D4/D5 dots -->
+<circle cx="435" cy="119" r="3" fill="#185FA5"/>
+<circle cx="435" cy="137" r="3" fill="#185FA5"/>
+<circle cx="435" cy="155" r="3" fill="#185FA5"/>
+
+<!-- ═══════════════════════════════════════════════
+     3V3 → VDD both drivers
+════════════════════════════════════════════════ -->
+<!-- 3V3 from ESP to #1 VDD -->
+<path d="M432 65 L446 65 L446 270 L10 270 L10 388 L22 388" fill="none" stroke="#cc3300" stroke-width="1.2" opacity="0.7" marker-end="url(#arr)"/>
+<!-- 3V3 to #2 VDD -->
+<path d="M446 65 L446 270 L670 270 L670 388 L658 388" fill="none" stroke="#cc3300" stroke-width="1.2" opacity="0.7" marker-end="url(#arr)"/>
+<text x="448" y="263" font-size="9" fill="#cc3300">3V3 → VDD</text>
+
+<!-- ═══════════════════════════════════════════════
+     VMOT rail → both drivers
+════════════════════════════════════════════════ -->
+<!-- VMOT rail: horizontal at y=18 → down to driver #1 -->
+<line x1="188" y1="18" x2="10" y2="18" stroke="#cc3300" stroke-width="1.8"/>
+<line x1="10" y1="18" x2="10" y2="352" stroke="#cc3300" stroke-width="1.8"/>
+<line x1="10" y1="352" x2="22" y2="352" stroke="#cc3300" stroke-width="1.8" marker-end="url(#arr)"/>
+<!-- VMOT to driver #2 -->
+<line x1="188" y1="18" x2="670" y2="18" stroke="#cc3300" stroke-width="1.8"/>
+<line x1="670" y1="18" x2="670" y2="352" stroke="#cc3300" stroke-width="1.8"/>
+<line x1="670" y1="352" x2="658" y2="352" stroke="#cc3300" stroke-width="1.8" marker-end="url(#arr)"/>
+
+<!-- ═══════════════════════════════════════════════
+     GND rail (black) — battery − → ESP GND → both drivers GND
+════════════════════════════════════════════════ -->
+<line x1="130" y1="62" x2="245" y2="62" stroke="#333" stroke-width="1.5"/>
+<!-- ESP GND down to driver #1 GND -->
+<line x1="6" y1="370" x2="22" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="6" y1="62" x2="6" y2="370" stroke="#333" stroke-width="1.5"/>
+<line x1="130" y1="62" x2="6" y2="62" stroke="#333" stroke-width="1.5"/>
+<!-- GND to driver #2 -->
+<line x1="674" y1="370" x2="658" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="245" y1="83" x2="232" y2="83" stroke="#333" stroke-width="1.5"/>
+<line x1="232" y1="83" x2="232" y2="840" stroke="#333" stroke-width="1" opacity="0.4"/>
+<text x="233" y="248" font-size="9" fill="#555">GND</text>
+<line x1="232" y1="62" x2="232" y2="250" stroke="#333" stroke-width="1.5"/>
+<line x1="6" y1="62" x2="232" y2="62" stroke="#333" stroke-width="1.5"/>
+<line x1="674" y1="62" x2="658" y2="62" stroke="none"/>
+<line x1="232" y1="62" x2="674" y2="62" stroke="#333" stroke-width="1.5"/>
+<line x1="674" y1="62" x2="674" y2="370" stroke="#333" stroke-width="1.5"/>
+
+<!-- ═══════════════════════════════════════════════
+     Static connections on MP6500 #1
+     ENBL = float (low = enabled by default)
+     MS1 = MS2 = GND (full step)
+     I2 = GND → 0.5A limit (fine for 70mA motors!)
+     I1 = float
+════════════════════════════════════════════════ -->
+<!-- #1: MS1, MS2 → GND (small line to GND symbol) -->
+<line x1="178" y1="424" x2="196" y2="424" stroke="#333" stroke-width="1"/>
+<line x1="178" y1="442" x2="196" y2="442" stroke="#333" stroke-width="1"/>
+<line x1="196" y1="424" x2="196" y2="450" stroke="#333" stroke-width="1"/>
+<line x1="196" y1="450" x2="204" y2="450" stroke="#333" stroke-width="1"/>
+<!-- GND symbol -->
+<line x1="204" y1="446" x2="218" y2="446" stroke="#333" stroke-width="1.5"/>
+<line x1="207" y1="450" x2="215" y2="450" stroke="#333" stroke-width="1.2"/>
+<line x1="210" y1="454" x2="212" y2="454" stroke="#333" stroke-width="1"/>
+<text x="220" y="453" font-size="9" fill="#555">GND = full step</text>
+
+<!-- #1: I2 → GND (0.5A limit) -->
+<line x1="178" y1="478" x2="200" y2="478" stroke="#333" stroke-width="1"/>
+<line x1="200" y1="478" x2="200" y2="470" stroke="#333" stroke-width="1"/>
+<!-- GND symbol for I2 -->
+<line x1="196" y1="466" x2="210" y2="466" stroke="#333" stroke-width="1.5"/>
+<line x1="198" y1="470" x2="208" y2="470" stroke="#333" stroke-width="1.2"/>
+<line x1="201" y1="474" x2="205" y2="474" stroke="#333" stroke-width="1"/>
+<text x="212" y="478" font-size="9" fill="#555">I2=GND → 0.5A</text>
+<!-- I1 float note -->
+<text x="178" y="461" font-size="9" fill="#555" text-anchor="end">I1=NC</text>
+
+<!-- #1: ENBL float -->
+<text x="178" y="409" font-size="9" fill="#888" text-anchor="end">  NC=enabled</text>
+
+<!-- ═══════════════════════════════════════════════
+     Static connections on MP6500 #2 (mirror)
+════════════════════════════════════════════════ -->
+<line x1="502" y1="424" x2="484" y2="424" stroke="#333" stroke-width="1"/>
+<line x1="502" y1="442" x2="484" y2="442" stroke="#333" stroke-width="1"/>
+<line x1="484" y1="424" x2="484" y2="450" stroke="#333" stroke-width="1"/>
+<line x1="484" y1="450" x2="476" y2="450" stroke="#333" stroke-width="1"/>
+<line x1="462" y1="446" x2="476" y2="446" stroke="#333" stroke-width="1.5"/>
+<line x1="465" y1="450" x2="473" y2="450" stroke="#333" stroke-width="1.2"/>
+<line x1="468" y1="454" x2="470" y2="454" stroke="#333" stroke-width="1"/>
+<text x="460" y="453" font-size="9" fill="#555" text-anchor="end">GND = full step</text>
+
+<line x1="502" y1="478" x2="480" y2="478" stroke="#333" stroke-width="1"/>
+<line x1="480" y1="478" x2="480" y2="470" stroke="#333" stroke-width="1"/>
+<line x1="470" y1="466" x2="484" y2="466" stroke="#333" stroke-width="1.5"/>
+<line x1="472" y1="470" x2="482" y2="470" stroke="#333" stroke-width="1.2"/>
+<line x1="475" y1="474" x2="479" y2="474" stroke="#333" stroke-width="1"/>
+<text x="468" y="478" font-size="9" fill="#555" text-anchor="end">I2=GND → 0.5A</text>
+<text x="502" y="461" font-size="9" fill="#555">I1=NC</text>
+<text x="502" y="409" font-size="9" fill="#888">NC=enabled</text>
+
+<!-- ═══════════════════════════════════════════════
+     Motor wires from drivers
+════════════════════════════════════════════════ -->
+<!-- #1 → Motor L1 coil A -->
+<line x1="22" y1="477" x2="8" y2="477" stroke="#d4267e" stroke-width="1.5"/>
+<line x1="8" y1="477" x2="8" y2="610" stroke="#d4267e" stroke-width="1.5"/>
+<line x1="8" y1="610" x2="40" y2="610" stroke="#d4267e" stroke-width="1.5"/>
+<line x1="40" y1="610" x2="40" y2="630" stroke="#d4267e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+<line x1="22" y1="495" x2="4" y2="495" stroke="#ff8c00" stroke-width="1.5"/>
+<line x1="4" y1="495" x2="4" y2="620" stroke="#ff8c00" stroke-width="1.5"/>
+<line x1="4" y1="620" x2="60" y2="620" stroke="#ff8c00" stroke-width="1.5"/>
+<line x1="60" y1="620" x2="60" y2="630" stroke="#ff8c00" stroke-width="1.5" marker-end="url(#arr)"/>
+
+<!-- #1 → Motor L2 coil B -->
+<line x1="22" y1="513" x2="130" y2="513" stroke="#d4267e" stroke-width="1.5"/>
+<line x1="130" y1="513" x2="130" y2="630" stroke="#d4267e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+<line x1="22" y1="531" x2="160" y2="531" stroke="#ff8c00" stroke-width="1.5"/>
+<line x1="160" y1="531" x2="160" y2="630" stroke="#ff8c00" stroke-width="1.5" marker-end="url(#arr)"/>
+
+<!-- coil labels -->
+<text x="64" y="618" font-size="9" fill="#d4267e">Coil A</text>
+<text x="140" y="618" font-size="9" fill="#ff8c00">Coil B</text>
+
+<!-- #2 → Motor R1 coil A -->
+<line x1="658" y1="477" x2="672" y2="477" stroke="#d4267e" stroke-width="1.5"/>
+<line x1="672" y1="477" x2="672" y2="610" stroke="#d4267e" stroke-width="1.5"/>
+<line x1="672" y1="610" x2="640" y2="610" stroke="#d4267e" stroke-width="1.5"/>
+<line x1="640" y1="610" x2="640" y2="630" stroke="#d4267e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+<line x1="658" y1="495" x2="676" y2="495" stroke="#ff8c00" stroke-width="1.5"/>
+<line x1="676" y1="495" x2="676" y2="620" stroke="#ff8c00" stroke-width="1.5"/>
+<line x1="676" y1="620" x2="620" y2="620" stroke="#ff8c00" stroke-width="1.5"/>
+<line x1="620" y1="620" x2="620" y2="630" stroke="#ff8c00" stroke-width="1.5" marker-end="url(#arr)"/>
+
+<!-- #2 → Motor R2 coil B -->
+<line x1="658" y1="513" x2="550" y2="513" stroke="#d4267e" stroke-width="1.5"/>
+<line x1="550" y1="513" x2="550" y2="630" stroke="#d4267e" stroke-width="1.5" marker-end="url(#arr)"/>
+
+<line x1="658" y1="531" x2="610" y2="531" stroke="#ff8c00" stroke-width="1.5"/>
+<line x1="610" y1="531" x2="610" y2="630" stroke="#ff8c00" stroke-width="1.5" marker-end="url(#arr)"/>
+
+<text x="556" y="618" font-size="9" fill="#d4267e">Coil A</text>
+<text x="604" y="618" font-size="9" fill="#ff8c00">Coil B</text>
+
+<!-- ═══════════════════════════════════════════════
+     LEGEND box
+════════════════════════════════════════════════ -->
+<rect x="240" y="290" width="200" height="240" rx="8" fill="#f8f8f8" stroke="#e0e0e0" stroke-width="0.8"/>
+<text x="340" y="310" text-anchor="middle" font-size="12" font-weight="500" fill="#222">Legend &amp; notes</text>
+
+<!-- wire colors legend -->
+<line x1="256" y1="325" x2="278" y2="325" stroke="#cc3300" stroke-width="2"/>
+<text x="284" y="329" font-size="10" fill="#555">VMOT (7.4V) + 3V3</text>
+
+<line x1="256" y1="341" x2="278" y2="341" stroke="#333" stroke-width="2"/>
+<text x="284" y="345" font-size="10" fill="#555">GND (common)</text>
+
+<line x1="256" y1="357" x2="278" y2="357" stroke="#E85D24" stroke-width="1.5"/>
+<text x="284" y="361" font-size="10" fill="#555">STEP signal</text>
+
+<line x1="256" y1="373" x2="278" y2="373" stroke="#7c5cfc" stroke-width="1.5"/>
+<text x="284" y="377" font-size="10" fill="#555">DIR signal</text>
+
+<line x1="256" y1="389" x2="278" y2="389" stroke="#8bc34a" stroke-width="1.5"/>
+<text x="284" y="393" font-size="10" fill="#555">SLEEP (enable)</text>
+
+<line x1="256" y1="405" x2="278" y2="405" stroke="#E85D24" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="284" y="409" font-size="10" fill="#555">same, driver #2</text>
+
+<line x1="256" y1="421" x2="278" y2="421" stroke="#d4267e" stroke-width="1.5"/>
+<text x="284" y="425" font-size="10" fill="#555">Motor coil A</text>
+
+<line x1="256" y1="437" x2="278" y2="437" stroke="#ff8c00" stroke-width="1.5"/>
+<text x="284" y="441" font-size="10" fill="#555">Motor coil B</text>
+
+<!-- notes -->
+<text x="252" y="460" font-size="10" fill="#555">• SLEEP = HIGH → driver enabled</text>
+<text x="252" y="476" font-size="10" fill="#555">• ENBL = NC (enabled by default)</text>
+<text x="252" y="492" font-size="10" fill="#555">• MS1=MS2=GND → full-step</text>
+<text x="252" y="508" font-size="10" fill="#555">• I1=NC, I2=GND → 0.5A limit</text>
+<text x="252" y="524" font-size="10" fill="#555">• 47µF cap close to VMOT!</text>
+
+<!-- ═══════════════════════════════════════════════
+     Pin assignment summary table
+════════════════════════════════════════════════ -->
+<rect x="20" y="700" width="640" height="140" rx="8" fill="#f8f8f8" stroke="#e0e0e0" stroke-width="0.8"/>
+<text x="340" y="720" text-anchor="middle" font-size="12" font-weight="500" fill="#222">ESP32-C3 pin assignment</text>
+
+<!-- table header -->
+<rect x="30" y="728" width="620" height="18" rx="3" fill="#e0e0e0"/>
+<text x="80"  y="741" font-size="10" font-weight="500" fill="#222" text-anchor="middle">GPIO</text>
+<text x="165" y="741" font-size="10" font-weight="500" fill="#222" text-anchor="middle">Function</text>
+<text x="280" y="741" font-size="10" font-weight="500" fill="#222" text-anchor="middle">→ to</text>
+<text x="445" y="741" font-size="10" font-weight="500" fill="#222" text-anchor="middle">GPIO</text>
+<text x="540" y="741" font-size="10" font-weight="500" fill="#222" text-anchor="middle">Function</text>
+<text x="630" y="741" font-size="10" font-weight="500" fill="#222" text-anchor="middle">→ to</text>
+
+<!-- divider -->
+<line x1="330" y1="728" x2="330" y2="830" stroke="#e0e0e0" stroke-width="0.8"/>
+
+<!-- rows left -->
+<text x="80"  y="757" font-size="10" fill="#555" text-anchor="middle">D0 / GPIO2</text>
+<text x="165" y="757" font-size="10" fill="#555" text-anchor="middle">STEP #1</text>
+<text x="280" y="757" font-size="10" fill="#555" text-anchor="middle">MP6500 #1 STEP</text>
+
+<text x="80"  y="772" font-size="10" fill="#555" text-anchor="middle">D1 / GPIO3</text>
+<text x="165" y="772" font-size="10" fill="#555" text-anchor="middle">DIR #1</text>
+<text x="280" y="772" font-size="10" fill="#555" text-anchor="middle">MP6500 #1 DIR</text>
+
+<text x="80"  y="787" font-size="10" fill="#555" text-anchor="middle">D2 / GPIO4</text>
+<text x="165" y="787" font-size="10" fill="#555" text-anchor="middle">SLEEP #1</text>
+<text x="280" y="787" font-size="10" fill="#555" text-anchor="middle">MP6500 #1 SLEEP</text>
+
+<text x="80"  y="802" font-size="10" fill="#555" text-anchor="middle">3V3</text>
+<text x="165" y="802" font-size="10" fill="#555" text-anchor="middle">logic VDD</text>
+<text x="280" y="802" font-size="10" fill="#555" text-anchor="middle">both VDD</text>
+
+<text x="80"  y="817" font-size="10" fill="#555" text-anchor="middle">GND</text>
+<text x="165" y="817" font-size="10" fill="#555" text-anchor="middle">common</text>
+<text x="280" y="817" font-size="10" fill="#555" text-anchor="middle">both GND + battery−</text>
+
+<!-- rows right -->
+<text x="445" y="757" font-size="10" fill="#555" text-anchor="middle">D3 / GPIO5</text>
+<text x="540" y="757" font-size="10" fill="#555" text-anchor="middle">STEP #2</text>
+<text x="630" y="757" font-size="10" fill="#555" text-anchor="middle">MP6500 #2 STEP</text>
+
+<text x="445" y="772" font-size="10" fill="#555" text-anchor="middle">D4 / GPIO6</text>
+<text x="540" y="772" font-size="10" fill="#555" text-anchor="middle">DIR #2</text>
+<text x="630" y="772" font-size="10" fill="#555" text-anchor="middle">MP6500 #2 DIR</text>
+
+<text x="445" y="787" font-size="10" fill="#555" text-anchor="middle">D5 / GPIO7</text>
+<text x="540" y="787" font-size="10" fill="#555" text-anchor="middle">SLEEP #2</text>
+<text x="630" y="787" font-size="10" fill="#555" text-anchor="middle">MP6500 #2 SLEEP</text>
+
+<text x="445" y="802" font-size="10" fill="#555" text-anchor="middle">VMOT</text>
+<text x="540" y="802" font-size="10" fill="#555" text-anchor="middle">motor power</text>
+<text x="630" y="802" font-size="10" fill="#555" text-anchor="middle">both VMOT + battery+</text>
+
+<!-- row lines -->
+<line x1="30" y1="762" x2="650" y2="762" stroke="#e0e0e0" stroke-width="0.5"/>
+<line x1="30" y1="777" x2="650" y2="777" stroke="#e0e0e0" stroke-width="0.5"/>
+<line x1="30" y1="792" x2="650" y2="792" stroke="#e0e0e0" stroke-width="0.5"/>
+<line x1="30" y1="807" x2="650" y2="807" stroke="#e0e0e0" stroke-width="0.5"/>
+</svg>
