@@ -50,6 +50,17 @@ String sensorColor = "unknown";
 unsigned long lastSensorMs = 0;
 #define SENSOR_INTERVAL_MS 200
 
+
+// Для теста латентности
+volatile uint32_t lastCmdReceiveTime = 0;
+volatile uint32_t lastMotorApplyTime = 0;
+volatile bool latencyMeasurementActive = false;
+
+
+// Для отладки датчика цвета
+unsigned long lastColorPrintMs = 0;
+const unsigned long COLOR_PRINT_INTERVAL_MS = 500;
+
 // ── WiFi AP ────────────────────────────────────────────────
 const char* AP_SSID = "RobotCar";
 const char* AP_PASS = "12345678";
@@ -227,6 +238,13 @@ void applyCommand(const String& cmd) {
   lastCmdMs = millis();
   autoStopped = false;
 
+   // ---- НАЧАЛО ИЗМЕРЕНИЯ ЛАТЕНТНОСТИ (для команды LAT) ----
+    uint32_t t_receive = micros();  // точное время получения
+    bool measureLatency = (cmd == "LAT");
+    if (measureLatency) {
+        lastCmdReceiveTime = t_receive;
+    }
+
   if (cmd == "F") {
     setMotors(FORWARD, FORWARD, currentSpeed, currentSpeed);
   }
@@ -248,6 +266,36 @@ void applyCommand(const String& cmd) {
     int mappedSpeed = map(v, 50, 2000, MIN_SPEED, MAX_SPEED);
     setSpeed(mappedSpeed);
   }
+   // ---- ДОБАВЛЯЕМ ОБРАБОТКУ LAT ----
+    else if (cmd == "LAT") {
+        // Ничего не двигаем, просто замерим задержку от получения команды до отправки ответа
+        // (чисто сетевая + обработка). Для измерения задержки до мотора используйте LAT_MOTOR.
+        uint32_t t_after = micros();
+        uint32_t latency_us = t_after - lastCmdReceiveTime;
+        // Отправляем результат обратно по WebSocket (клиент получит и покажет)
+        String reply = "LAT_RESULT " + String(latency_us) + " us";
+        wsServer.broadcastTXT(reply);
+        Serial.printf("Latency (cmd->reply): %u us\n", latency_us);
+    }
+    else if (cmd == "LAT_MOTOR") {
+        // Измеряем задержку от получения команды до физического изменения моторов
+        // Сначала принудительно применяем краткое движение вперёд на 10 мс, чтобы моторы точно изменили состояние
+        setMotors(FORWARD, FORWARD, MIN_SPEED, MIN_SPEED);
+        uint32_t t_apply = micros();
+        uint32_t latency_us = t_apply - lastCmdReceiveTime;
+        // Возвращаем моторы в стоп
+        delay(10);
+        setMotors(STOPPED, STOPPED, 0, 0);
+        // Отправляем результат
+        String reply = "MOTOR_LATENCY " + String(latency_us) + " us";
+        wsServer.broadcastTXT(reply);
+        Serial.printf("Motor latency (cmd->apply): %u us\n", latency_us);
+    }
+
+    // ---- ЗАПОМИНАЕМ ВРЕМЯ ПРИМЕНЕНИЯ (для будущих измерений) ----
+    if (measureLatency) {
+        lastMotorApplyTime = micros();
+    }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -272,6 +320,21 @@ void onWsEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
       applyCommand(msg);
       break;
     }
+    case WStype_TEXT: {
+    String msg = String((char*)payload);
+    msg.trim();
+    
+    // ----- ПИНГ ДЛЯ ИЗМЕРЕНИЯ RTT -----
+    if (msg.startsWith("PING")) {
+        // Формат: PING<число>
+        uint32_t id = msg.substring(4).toInt();
+        wsServer.sendTXT(num, "PONG" + String(id));
+        break;
+    }
+    // ----- ОБЫЧНЫЕ КОМАНДЫ ДВИЖЕНИЯ -----
+    applyCommand(msg);
+    break;
+}
 
     default: break;
   }
@@ -430,6 +493,17 @@ const char INDEX_HTML[] PROGMEM = R"rawhtml(
   <div class="spd-lbl">Скорость <span id="spd-val">50%</span></div>
   <input type="range" id="spd-slider" min="50" max="2000" value="400" step="50">
 </div>
+<div class="latency-test">
+  <button id="test-latency-btn" class="cam-toggle" style="background:var(--accent);">📊 Тест задержки (100 команд)</button>
+  <div id="latency-stats" style="font-size:12px; margin-top:10px; background:var(--surface); border-radius:12px; padding:10px; display:none;">
+    <div style="font-weight:bold; margin-bottom:6px;">📈 Результаты (мс)</div>
+    <div>Минимум: <span id="lat-min">—</span></div>
+    <div>Медиана: <span id="lat-med">—</span></div>
+    <div>Максимум: <span id="lat-max">—</span></div>
+    <div style="margin-top:6px;">⏱ Задержка мотора (ESP32):<br> минимум <span id="mot-min">—</span> мс / медиана <span id="mot-med">—</span> / макс <span id="mot-max">—</span></div>
+    <div style="margin-top:4px; color:var(--muted); font-size:10px;">(измерено по 100 командам LAT_MOTOR)</div>
+  </div>
+</div>
 
 <div class="cur">Команда: <span id="cur-cmd">стоп</span></div>
 
@@ -438,6 +512,94 @@ const char INDEX_HTML[] PROGMEM = R"rawhtml(
 const WS_PORT = 81;
 let ws, wsReady = false;
 const cmdNames = {F:'вперёд',B:'назад',L:'влево',R:'вправо',S:'стоп'};
+
+async function runLatencyTest() {
+  if (testActive || !wsReady || ws.readyState !== WebSocket.OPEN) {
+    alert('Нет соединения');
+    return;
+  }
+  testActive = true;
+  testBtn.disabled = true;
+  testBtn.textContent = 'Тест RTT... 0/100';
+  statsDiv.style.display = 'block';
+
+  const N = 100;
+  let rttResults = [];
+
+  // 1. Измеряем RTT через PING
+  for (let i = 0; i < N; i++) {
+    const id = Date.now() + i + Math.random();
+    const start = performance.now();
+    ws.send('PING' + id);
+    const rtt = await new Promise((resolve) => {
+      const handler = (e) => {
+        if (e.data === 'PONG' + id) {
+          ws.removeEventListener('message', handler);
+          resolve(performance.now() - start);
+        }
+      };
+      ws.addEventListener('message', handler);
+      // таймаут на всякий случай
+      setTimeout(() => { ws.removeEventListener('message', handler); resolve(null); }, 1000);
+    });
+    if (rtt !== null) rttResults.push(rtt);
+    testBtn.textContent = `Тест RTT... ${i+1}/${N}`;
+    await new Promise(r => setTimeout(r, 20)); // небольшая пауза
+  }
+
+  // 2. Измеряем задержку мотора (LAT_MOTOR)
+  testBtn.textContent = 'Замер мотора... 0/100';
+  let motorLatencies = [];
+
+  for (let i = 0; i < N; i++) {
+    ws.send('LAT_MOTOR');
+    const motorUs = await new Promise((resolve) => {
+      const handler = (e) => {
+        if (typeof e.data === 'string' && e.data.startsWith('MOTOR_LATENCY')) {
+          const us = parseInt(e.data.split(' ')[1]);
+          ws.removeEventListener('message', handler);
+          resolve(us);
+        }
+      };
+      ws.addEventListener('message', handler);
+      setTimeout(() => { ws.removeEventListener('message', handler); resolve(null); }, 200);
+    });
+    if (motorUs !== null) motorLatencies.push(motorUs / 1000); // в мс
+    testBtn.textContent = `Замер мотора... ${i+1}/${N}`;
+    await new Promise(r => setTimeout(r, 20));
+  }
+
+  // Статистика RTT
+  if (rttResults.length) {
+    rttResults.sort((a,b)=>a-b);
+    const minRtt = rttResults[0];
+    const maxRtt = rttResults[rttResults.length-1];
+    const medianRtt = rttResults[Math.floor(rttResults.length/2)];
+    document.getElementById('lat-min').innerText = minRtt.toFixed(2);
+    document.getElementById('lat-med').innerText = medianRtt.toFixed(2);
+    document.getElementById('lat-max').innerText = maxRtt.toFixed(2);
+  } else {
+    document.getElementById('lat-min').innerText = 'ошибка';
+  }
+
+  // Статистика мотора
+  if (motorLatencies.length) {
+    motorLatencies.sort((a,b)=>a-b);
+    document.getElementById('mot-min').innerText = motorLatencies[0].toFixed(3);
+    document.getElementById('mot-med').innerText = motorLatencies[Math.floor(motorLatencies.length/2)].toFixed(3);
+    document.getElementById('mot-max').innerText = motorLatencies[motorLatencies.length-1].toFixed(3);
+  } else {
+    document.getElementById('mot-min').innerText = '—';
+  }
+
+  testBtn.disabled = false;
+  testBtn.textContent = '📊 Тест задержки (100 команд)';
+  testActive = false;
+  alert('Тест завершён. Результаты обновлены.');
+}
+
+// Привязываем кнопку
+testBtn.onclick = runLatencyTest;
 
 function connect() {
   ws = new WebSocket('ws://' + location.hostname + ':' + WS_PORT + '/');
@@ -598,6 +760,32 @@ void handleRoot() {
   httpServer.send_P(200, "text/html", INDEX_HTML);
 }
 
+// AtomS3R saadab kaugusandmed siia iga 200ms
+void handleSensor() {
+  if (!httpServer.hasArg("plain")) { httpServer.send(400, "text/plain", "no body"); return; }
+  StaticJsonDocument<128> doc;
+  if (deserializeJson(doc, httpServer.arg("plain"))) { httpServer.send(400, "text/plain", "bad json"); return; }
+  if (doc.containsKey("dist")) sensorDist = doc["dist"].as<float>();
+  Serial.printf("Sensor received: dist=%.1f\n", sensorDist);
+  httpServer.send(200, "text/plain", "ok");
+}
+
+// ESP32-CAM saadab QR koodid siia
+void handleQr() {
+  if (!httpServer.hasArg("plain")) { httpServer.send(400, "text/plain", "no body"); return; }
+  StaticJsonDocument<256> doc;
+  if (deserializeJson(doc, httpServer.arg("plain"))) { httpServer.send(400, "text/plain", "bad json"); return; }
+  String qr = doc["qr"].as<String>();
+  Serial.printf("QR received: %s\n", qr.c_str());
+  // Saada brauserile WebSocket kaudu
+  StaticJsonDocument<256> out;
+  out["type"] = "qr";
+  out["qr"]   = qr;
+  String msg; serializeJson(out, msg);
+  wsServer.broadcastTXT(msg);
+  httpServer.send(200, "text/plain", "ok");
+}
+
 // ══════════════════════════════════════════════════════════
 // SETUP / LOOP
 // ══════════════════════════════════════════════════════════
@@ -621,8 +809,10 @@ void setup() {
   WiFi.softAP(AP_SSID, AP_PASS);
   Serial.printf("AP IP: %s\n", WiFi.softAPIP().toString().c_str());
 
-  // HTTP — только главная страница
+  // HTTP marsruudid
   httpServer.on("/", handleRoot);
+  httpServer.on("/sensor", HTTP_POST, handleSensor);
+  httpServer.on("/qr",     HTTP_POST, handleQr);
   httpServer.begin();
 
   // WebSocket на порту 81
@@ -636,6 +826,14 @@ void setup() {
 void loop() {
   httpServer.handleClient();
   wsServer.loop();
+  // Вывод сырых данных TCS34725 в Serial (для отладки)
+if (tcs_ok && (millis() - lastColorPrintMs >= COLOR_PRINT_INTERVAL_MS)) {
+    lastColorPrintMs = millis();
+    uint16_t r, g, b, c;
+    tcs.getRawData(&r, &g, &b, &c);
+    String colorName = readColor();
+    Serial.printf("COLOR_RAW: R=%4d G=%4d B=%4d C=%4d -> %s\n", r, g, b, c, colorName.c_str());
+}
   updateSensors();
 
   // ── Автостоп ─────────────────────────────────────────────
