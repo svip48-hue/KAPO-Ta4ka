@@ -66,6 +66,40 @@ unsigned long lastSendMs = 0;
 
 WebServer server(80);
 
+// ── VL53L0X task — jookseb core 0-l, sõltumatu strimist ──
+void sensorTask(void* pvParameters) {
+  while (true) {
+    if (vl53_ok && WiFi.status() == WL_CONNECTED) {
+      unsigned long now = millis();
+      if (now - lastSendMs >= SEND_INTERVAL_MS) {
+        lastSendMs = now;
+
+        VL53L0X_RangingMeasurementData_t m;
+        vl53.rangingTest(&m, false);
+
+        if (m.RangeStatus != 4) {
+          float dist = m.RangeMilliMeter / 10.0;
+
+          StaticJsonDocument<64> doc;
+          doc["dist"] = dist;
+          String body;
+          serializeJson(doc, body);
+
+          HTTPClient http;
+          http.begin(MAIN_URL);
+          http.addHeader("Content-Type", "application/json");
+          http.setTimeout(150);
+          http.POST(body);
+          http.end();
+
+          Serial.printf("Dist: %.1f cm\n", dist);
+        }
+      }
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+  }
+}
+
 // ── MJPEG стрим ───────────────────────────────────────────
 void handleStream() {
   WiFiClient client = server.client();
@@ -181,7 +215,15 @@ void setup() {
     s->set_hmirror(s, 0);   // зеркало по горизонтали: 1 = да
     s->set_vflip(s, 0);     // перевернуть: 1 = да
   }
-
+  // ── VL53L0X на PORT A (G1=SDA, G2=SCL) ───────────────
+  Wire.begin(PORT_A_SDA, PORT_A_SCL);
+  vl53_ok = vl53.begin(0x29, false, &Wire);
+  if (vl53_ok) {
+    
+    Serial.println("VL53L0X OK (PORT A)");
+  } else {
+    Serial.println("VL53L0X ei leitud PORT A-l!");
+  }
   // ── Подключение к WiFi ─────────────────────────────────
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -221,37 +263,22 @@ void setup() {
   server.on("/status",  handleStatus);
   server.begin();
 
+  // Sensor task — core 0-l, stream on core 1-l
+  // Nii töötavad paralleelselt ilma teineteist blokeerimata
+  xTaskCreatePinnedToCore(
+    sensorTask,    // funktsioon
+    "sensorTask",  // nimi
+    4096,          // stack suurus
+    NULL,          // parameetrid
+    1,             // prioriteet
+    NULL,          // task handle
+    0              // core 0 (loop() jookseb core 1-l)
+  );
+
   Serial.println("HTTP server started");
+  Serial.println("Sensor task started on core 0");
 }
 
 void loop() {
   server.handleClient();
-
-  // ── Saada kaugusandmed XIAO-le iga 200ms ──────────────
-  if (vl53_ok && millis() - lastSendMs >= SEND_INTERVAL_MS) {
-    lastSendMs = millis();
-    VL53L0X_RangingMeasurementData_t m;
-    vl53.rangingTest(&m, false);
-    delay(50);
-
-    if (m.RangeStatus != 4) {
-      float dist = m.RangeMilliMeter / 10.0;
-
-      if (WiFi.status() == WL_CONNECTED) {
-        StaticJsonDocument<64> doc;
-        doc["dist"] = dist;
-        String body;
-        serializeJson(doc, body);
-
-        HTTPClient http;
-        http.begin(MAIN_URL);
-        http.addHeader("Content-Type", "application/json");
-        http.setTimeout(150);
-        http.POST(body);
-        http.end();
-
-        Serial.printf("Dist: %.1f cm\n", dist);
-      }
-    }
-  }
 }
