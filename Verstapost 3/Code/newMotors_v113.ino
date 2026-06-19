@@ -54,6 +54,10 @@ float gyroKp           = 1.8;   // коэффициент коррекции (п
 int   baseLeftSpeed    = 0;     // целевая скорость без коррекции
 int   baseRightSpeed   = 0;
 float lastCorrection   = 0;     // для отображения/отладки
+
+// ── "Вечный газ" — тест времени работы аккумулятора ───────
+bool enduranceActive    = false;
+unsigned long enduranceStartMs = 0;
 String sensorColor = "unknown";
 unsigned long lastSensorMs = 0;
 #define SENSOR_INTERVAL_MS 200
@@ -273,16 +277,22 @@ void updateSensors() {
   // ── Автостоп по дальномеру ────────────────────────────────
   if (sensorDist > 0 && sensorDist < OBSTACLE_STOP_CM) {
     if (leftDir == FORWARD || rightDir == FORWARD) {
+      bool wasEndurance = enduranceActive;
       setMotors(STOPPED, STOPPED, 0, 0);
-      isDriving   = false;
-      autoStopped = true;
+      isDriving       = false;
+      autoStopped     = true;
+      enduranceActive = false;  // препятствие останавливает и вечный тест
       wsServer.broadcastTXT("{\"type\":\"obstacle\",\"dist\":" + String(sensorDist) + "}");
+      if (wasEndurance) {
+        Serial.printf("ENDURANCE TEST STOPPED BY OBSTACLE — runtime: %lu s\n",
+                      (millis() - enduranceStartMs) / 1000);
+      }
     }
   }
 
   // Отправить данные браузеру через WebSocket
   float temp_xiao = readChipTemp();
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<320> doc;
   doc["type"]      = "sensors";
   doc["dist"]      = sensorDist;
   doc["color"]     = sensorColor;
@@ -290,6 +300,10 @@ void updateSensors() {
   doc["gyro_z"]    = gyroZ;
   if (temp_lite > 0)    doc["temp_lite"]   = (int)temp_lite;
   if (temp_atoms3r > 0) doc["temp_atoms3r"] = (int)temp_atoms3r;
+  doc["endurance_active"] = enduranceActive;
+  if (enduranceActive) {
+    doc["endurance_sec"] = (unsigned long)((millis() - enduranceStartMs) / 1000);
+  }
   String msg;
   serializeJson(doc, msg);
   wsServer.broadcastTXT(msg);
@@ -362,6 +376,20 @@ void applyCommand(const String& cmd) {
     gyroCorrectionEnabled = false;
     Serial.println("Gyro correction OFF");
   }
+  // ── "Вечный газ" — тест времени работы аккумулятора ──────
+  else if (cmd == "ENDURANCE_START") {
+    enduranceActive  = true;
+    enduranceStartMs = millis();
+    isDriving        = false;  // не используем обычный таймер DRIVE
+    setMotors(FORWARD, FORWARD, currentSpeed, currentSpeed);
+    Serial.println("ENDURANCE TEST STARTED");
+  }
+  else if (cmd == "ENDURANCE_STOP") {
+    enduranceActive = false;
+    setMotors(STOPPED, STOPPED, 0, 0);
+    Serial.printf("ENDURANCE TEST STOPPED — runtime: %lu s\n",
+                  (millis() - enduranceStartMs) / 1000);
+  }
    // ---- ДОБАВЛЯЕМ ОБРАБОТКУ LAT ----
     else if (cmd == "LAT") {
         // Ничего не двигаем, просто замерим задержку от получения команды до отправки ответа
@@ -401,8 +429,13 @@ void onWsEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
       break;
 
     case WStype_DISCONNECTED:
-      Serial.printf("[WS] Client %u disconnected → autostop\n", num);
-      setMotors(STOPPED, STOPPED, 0, 0);
+      Serial.printf("[WS] Client %u disconnected\n", num);
+      if (!enduranceActive) {
+        setMotors(STOPPED, STOPPED, 0, 0);
+        Serial.println("→ autostop");
+      } else {
+        Serial.println("→ вечный тест продолжается без браузера");
+      }
       break;
 
     case WStype_TEXT: {
@@ -410,9 +443,9 @@ void onWsEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
       msg.trim();
       // ----- ПИНГ ДЛЯ ИЗМЕРЕНИЯ RTT -----
     if (msg.startsWith("PING")) {
-        // Формат: PING<число>
-        uint32_t id = msg.substring(4).toInt();
-        wsServer.sendTXT(num, "PONG" + String(id));
+        // Просто отражаем обратно тот же суффикс (ID может быть длиннее uint32_t)
+        String pingId = msg.substring(4);
+        wsServer.sendTXT(num, "PONG" + pingId);
         break;
     }
     if (msg == "REBOOT") {
@@ -560,6 +593,25 @@ const char INDEX_HTML[] PROGMEM = R"rawhtml(
     display:inline-block;margin-right:6px;vertical-align:middle;
     border:1px solid var(--border);
   }
+
+  /* вечный газ */
+  .endurance-section{
+    width:100%;max-width:480px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;padding:12px 14px;
+    display:flex;flex-direction:column;gap:8px;align-items:center;
+  }
+  .endurance-timer{
+    font-size:32px;font-weight:700;color:var(--text);
+    font-family:monospace;letter-spacing:1px;
+  }
+  .endurance-status{font-size:11px;color:var(--muted)}
+  .endurance-btn{
+    width:100%;padding:10px;border-radius:10px;border:none;
+    font-size:14px;font-weight:600;cursor:pointer;
+    background:var(--accent);color:#fff;
+  }
+  .endurance-btn.running{background:var(--danger)}
 </style>
 </head>
 <body>
@@ -642,6 +694,14 @@ const char INDEX_HTML[] PROGMEM = R"rawhtml(
   </div>
   <button class="calib-btn" onclick="applyCalib()">&#x2713; Rakenda parameetrid</button>
   <div class="calib-result" id="calib-result"></div>
+</div>
+
+<!-- Вечный газ — тест времени работы аккумулятора -->
+<div class="endurance-section">
+  <div class="calib-title">&#x267E;&#xFE0F; Aku t&#246;&#246;aja test ("igavene gaas")</div>
+  <div class="endurance-timer" id="endurance-timer">00:00:00</div>
+  <div class="endurance-status" id="endurance-status">Robot seisab</div>
+  <button class="endurance-btn" id="endurance-btn" onclick="toggleEndurance()">&#x25B6; K&#228;ivita vastupidavustest</button>
 </div>
 
 <div class="dpad">
@@ -926,6 +986,32 @@ function toggleGyroCorr() {
   send(gyroCorrOn ? 'GYRO_ON' : 'GYRO_OFF');
 }
 
+// ── Вечный газ — тест времени работы аккумулятора ─────────
+let enduranceRunning = false;
+function toggleEndurance() {
+  enduranceRunning = !enduranceRunning;
+  const btn = document.getElementById('endurance-btn');
+  if (enduranceRunning) {
+    send('ENDURANCE_START');
+    btn.textContent = '■ Peata test';
+    btn.classList.add('running');
+    document.getElementById('endurance-status').textContent = 'Töötab...';
+  } else {
+    send('ENDURANCE_STOP');
+    btn.textContent = '▶ Käivita vastupidavustest';
+    btn.classList.remove('running');
+    document.getElementById('endurance-status').textContent =
+      'Peatatud — lõpptulemus jääb ekraanile';
+  }
+}
+
+function formatHMS(totalSec) {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
+}
+
 function applyCalib() {
   calib.height_cm      = parseFloat(document.getElementById('cal-height').value)    || 9;
   calib.angle_deg      = parseFloat(document.getElementById('cal-angle').value)     || 25;
@@ -1078,6 +1164,27 @@ function updateSensorUI(d) {
     // Подсветка если робот вращается заметно
     el.style.color = Math.abs(d.gyro_z) > 5 ? 'var(--accent)' : 'var(--text)';
   }
+
+  // Вечный газ — таймер (сервер авторитетный источник, переживает обрыв связи)
+  if (d.endurance_active === true && d.endurance_sec !== undefined) {
+    document.getElementById('endurance-timer').textContent = formatHMS(d.endurance_sec);
+    document.getElementById('endurance-status').textContent = 'Töötab...';
+    if (!enduranceRunning) {
+      // Синхронизируем UI если тест уже идёт (например, страница была перезагружена)
+      enduranceRunning = true;
+      const btn = document.getElementById('endurance-btn');
+      btn.textContent = '■ Peata test';
+      btn.classList.add('running');
+    }
+  } else if (d.endurance_active === false && enduranceRunning) {
+    // Тест завершился сам (например, препятствие) — обновляем UI, но не сбрасываем таймер
+    enduranceRunning = false;
+    const btn = document.getElementById('endurance-btn');
+    btn.textContent = '▶ Käivita vastupidavustest';
+    btn.classList.remove('running');
+    document.getElementById('endurance-status').textContent =
+      'Test peatus (takistus?) — lõpptulemus ekraanil';
+  }
 }
 
 connect();
@@ -1172,8 +1279,8 @@ void loop() {
     isDriving = false;
   }
 
-  // ── Автостоп по таймауту ──────────────────────────────────
-  if (!autoStopped && !isDriving && (leftDir != STOPPED || rightDir != STOPPED)) {
+  // ── Автостоп по таймауту (не работает во время вечного теста) ──
+  if (!autoStopped && !isDriving && !enduranceActive && (leftDir != STOPPED || rightDir != STOPPED)) {
     if (millis() - lastCmdMs > WS_TIMEOUT_MS) {
       setMotors(STOPPED, STOPPED, 0, 0);
       autoStopped = true;
